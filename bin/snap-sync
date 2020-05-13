@@ -34,7 +34,7 @@ printf "snap-sync comes with ABSOLUTELY NO WARRANTY. This is free software, and 
 
 # The following line is modified by the Makefile or
 # find_snapper_config script
-SNAPPER_CONFIG=/etc/conf.d/snapper
+SNAPPER_CONFIG=/etc/default/snapper
 
 TMPDIR=$(mktemp -d)
 PIPE=$TMPDIR/$name.out
@@ -191,8 +191,8 @@ fi
 
 if [[ "$($ssh findmnt -n -v --target / -o FSTYPE)" == "btrfs" ]]; then
     EXCLUDE_UUID=$($ssh findmnt -n -v -t btrfs --target / -o UUID)
-    TARGETS=$($ssh findmnt -n -v -t btrfs -o UUID,TARGET --list | grep -v $EXCLUDE_UUID | awk '{print $2}')
-    UUIDS=$($ssh findmnt -n -v -t btrfs -o UUID,TARGET --list | grep -v $EXCLUDE_UUID | awk '{print $1}')
+    TARGETS=$($ssh findmnt -n -v -t btrfs -o UUID,TARGET --list | awk '{print $2}')
+    UUIDS=$($ssh findmnt -n -v -t btrfs -o UUID,TARGET --list | awk '{print $1}')
 else
     TARGETS=$($ssh findmnt -n -v -t btrfs -o TARGET --list)
     UUIDS=$($ssh findmnt -n -v -t btrfs -o UUID --list)
@@ -440,7 +440,7 @@ for x in $selected_configs; do
 
     if [[ -z "$old_num" ]]; then
         printf "Sending first snapshot for '%s' configuration...\n" "$x" | tee $PIPE  
-        btrfs send "$new_snap" | $ssh btrfs receive "$backup_location" &>/dev/null
+        btrfs send "$new_snap" | pv | $ssh btrfs receive "$backup_location"
 
     else
 
@@ -450,7 +450,7 @@ for x in $selected_configs; do
         # is an identical subvolume to the old snapshot at the receiving
         # location where it can get its data. This helps speed up the transfer.
 
-        btrfs send -c "$old_snap" "$new_snap" | $ssh btrfs receive "$backup_location"
+        btrfs send -c "$old_snap" "$new_snap" | pv | $ssh btrfs receive "$backup_location"
         printf "Modifying data for old local snapshot for '%s' configuration...\n" "$x" | tee $PIPE
         snapper -v -c "$x" modify -d "old snap-sync snapshot (you may remove)" -u "backupdir=,subvolid=,uuid=" -c "number" "$old_num"
     fi
